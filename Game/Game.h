@@ -20,7 +20,9 @@ class Game
     // to start checkers
     int play()
     {
+        // Засекаем время начала игры
         auto start = chrono::steady_clock::now();
+        // Если переигровка - сбрасываем состояние
         if (is_replay)
         {
             logic = Logic(&board, &config);
@@ -36,15 +38,21 @@ class Game
         int turn_num = -1;
         bool is_quit = false;
         const int Max_turns = config("Game", "MaxNumTurns");
+        // Основной игровой цикл
         while (++turn_num < Max_turns)
         {
             beat_series = 0;
+            // Ищем доступные ходы для текущего игрока
             logic.find_turns(turn_num % 2);
+            // Если ходов нет - игра окончена
             if (logic.turns.empty())
                 break;
+            // Устанавливаем глубину расчёта для бота
             logic.Max_depth = config("Bot", string((turn_num % 2) ? "Black" : "White") + string("BotLevel"));
+            // Проверяем, человек или бот ходит
             if (!config("Bot", string("Is") + string((turn_num % 2) ? "Black" : "White") + string("Bot")))
             {
+                // Ход человека
                 auto resp = player_turn(turn_num % 2);
                 if (resp == Response::QUIT)
                 {
@@ -58,6 +66,7 @@ class Game
                 }
                 else if (resp == Response::BACK)
                 {
+                    // Откат хода назад
                     if (config("Bot", string("Is") + string((1 - turn_num % 2) ? "Black" : "White") + string("Bot")) &&
                         !beat_series && board.history_mtx.size() > 2)
                     {
@@ -73,17 +82,21 @@ class Game
                 }
             }
             else
+                // Ход бота
                 bot_turn(turn_num % 2);
         }
+        // Записываем время игры в лог
         auto end = chrono::steady_clock::now();
         ofstream fout(project_path + "log.txt", ios_base::app);
         fout << "Game time: " << (int)chrono::duration<double, milli>(end - start).count() << " millisec\n";
         fout.close();
 
+        // Рекурсивный вызов при переигровке
         if (is_replay)
             return play();
         if (is_quit)
             return 0;
+        // Определяем результат: 0 - ничья, 1 - белые, 2 - чёрные
         int res = 2;
         if (turn_num == Max_turns)
         {
@@ -93,6 +106,7 @@ class Game
         {
             res = 1;
         }
+        // Показываем финальный экран
         board.show_final(res);
         auto resp = hand.wait();
         if (resp == Response::REPLAY)
@@ -104,37 +118,46 @@ class Game
     }
 
   private:
+    // Обработка хода бота
     void bot_turn(const bool color)
     {
+        // Засекаем время хода
         auto start = chrono::steady_clock::now();
 
+        // Получаем задержку из настроек
         auto delay_ms = config("Bot", "BotDelayMS");
         // new thread for equal delay for each turn
         thread th(SDL_Delay, delay_ms);
+        // Ищем лучший ход
         auto turns = logic.find_best_turns(color);
         th.join();
         bool is_first = true;
         // making moves
         for (auto turn : turns)
         {
+            // Задержка между ходами в серии
             if (!is_first)
             {
                 SDL_Delay(delay_ms);
             }
             is_first = false;
+            // Увеличиваем счётчик взятий
             beat_series += (turn.xb != -1);
             board.move_piece(turn, beat_series);
         }
 
+        // Записываем время хода в лог
         auto end = chrono::steady_clock::now();
         ofstream fout(project_path + "log.txt", ios_base::app);
         fout << "Bot turn time: " << (int)chrono::duration<double, milli>(end - start).count() << " millisec\n";
         fout.close();
     }
 
+    // Обработка хода игрока
     Response player_turn(const bool color)
     {
         // return 1 if quit
+        // Собираем клетки с шашками, которыми можно походить
         vector<pair<POS_T, POS_T>> cells;
         for (auto turn : logic.turns)
         {
@@ -146,19 +169,23 @@ class Game
         // trying to make first move
         while (true)
         {
+            // Ждём клик игрока
             auto resp = hand.get_cell();
             if (get<0>(resp) != Response::CELL)
                 return get<0>(resp);
             pair<POS_T, POS_T> cell{get<1>(resp), get<2>(resp)};
 
+            // Проверяем выбранную клетку
             bool is_correct = false;
             for (auto turn : logic.turns)
             {
+                // Игрок выбрал шашку
                 if (turn.x == cell.first && turn.y == cell.second)
                 {
                     is_correct = true;
                     break;
                 }
+                // Игрок выбрал клетку для хода
                 if (turn == move_pos{x, y, cell.first, cell.second})
                 {
                     pos = turn;
@@ -167,6 +194,7 @@ class Game
             }
             if (pos.x != -1)
                 break;
+            // Неверный выбор - сбрасываем
             if (!is_correct)
             {
                 if (x != -1)
@@ -179,6 +207,7 @@ class Game
                 y = -1;
                 continue;
             }
+            // Запоминаем выбранную шашку и подсвечиваем её ходы
             x = cell.first;
             y = cell.second;
             board.clear_highlight();
@@ -193,19 +222,23 @@ class Game
             }
             board.highlight_cells(cells2);
         }
+        // Выполняем ход
         board.clear_highlight();
         board.clear_active();
         board.move_piece(pos, pos.xb != -1);
+        // Если не было взятия - ход окончен
         if (pos.xb == -1)
             return Response::OK;
         // continue beating while can
         beat_series = 1;
         while (true)
         {
+            // Ищем следующие взятия
             logic.find_turns(pos.x2, pos.y2);
             if (!logic.have_beats)
                 break;
 
+            // Подсвечиваем клетки для взятия
             vector<pair<POS_T, POS_T>> cells;
             for (auto turn : logic.turns)
             {
@@ -234,6 +267,7 @@ class Game
                 if (!is_correct)
                     continue;
 
+                // Выполняем взятие
                 board.clear_highlight();
                 board.clear_active();
                 beat_series += 1;

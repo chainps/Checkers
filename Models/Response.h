@@ -1,10 +1,11 @@
 #pragma once
 
+// Возможные ответы от игрока
 enum class Response
 {
-    OK,
-    BACK,
-    REPLAY,
-    QUIT,
-    CELL
+    OK,      // Ход выполнен успешно
+    BACK,    // Отмена хода
+    REPLAY,  // Начать игру заново
+    QUIT,    // Выйти из игры
+    CELL     // Выбрана клетка на доске
 };

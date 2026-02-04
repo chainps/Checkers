@@ -16,10 +16,13 @@
 
 using namespace std;
 
+// Класс для отрисовки игровой доски и шашек
 class Board
 {
 public:
     Board() = default;
+
+    // Конструктор с размерами окна
     Board(const unsigned int W, const unsigned int H) : W(W), H(H)
     {
     }
@@ -74,6 +77,7 @@ public:
         return 0;
     }
 
+    // Сброс доски для новой игры
     void redraw()
     {
         game_results = -1;
@@ -84,6 +88,7 @@ public:
         clear_highlight();
     }
 
+    // Выполнить ход шашкой
     void move_piece(move_pos turn, const int beat_series = 0)
     {
         if (turn.xb != -1)
@@ -93,6 +98,7 @@ public:
         move_piece(turn.x, turn.y, turn.x2, turn.y2, beat_series);
     }
 
+    // Перемещение шашки с проверками
     void move_piece(const POS_T i, const POS_T j, const POS_T i2, const POS_T j2, const int beat_series = 0)
     {
         if (mtx[i2][j2])
@@ -103,6 +109,7 @@ public:
         {
             throw runtime_error("begin position is empty, can't move");
         }
+        // Превращение в дамку при достижении последней горизонтали
         if ((mtx[i][j] == 1 && i2 == 0) || (mtx[i][j] == 2 && i2 == 7))
             mtx[i][j] += 2;
         mtx[i2][j2] = mtx[i][j];
@@ -110,12 +117,14 @@ public:
         add_history(beat_series);
     }
 
+    // Убрать шашку с клетки
     void drop_piece(const POS_T i, const POS_T j)
     {
         mtx[i][j] = 0;
         rerender();
     }
 
+    // Превращение шашки в дамку
     void turn_into_queen(const POS_T i, const POS_T j)
     {
         if (mtx[i][j] == 0 || mtx[i][j] > 2)
@@ -125,11 +134,14 @@ public:
         mtx[i][j] += 2;
         rerender();
     }
+
+    // Получить текущее состояние доски
     vector<vector<POS_T>> get_board() const
     {
         return mtx;
     }
 
+    // Подсветить указанные клетки (для отображения возможных ходов)
     void highlight_cells(vector<pair<POS_T, POS_T>> cells)
     {
         for (auto pos : cells)
@@ -140,6 +152,7 @@ public:
         rerender();
     }
 
+    // Убрать подсветку со всех клеток
     void clear_highlight()
     {
         for (POS_T i = 0; i < 8; ++i)
@@ -149,6 +162,7 @@ public:
         rerender();
     }
 
+    // Выделить активную шашку
     void set_active(const POS_T x, const POS_T y)
     {
         active_x = x;
@@ -156,6 +170,7 @@ public:
         rerender();
     }
 
+    // Снять выделение с активной шашки
     void clear_active()
     {
         active_x = -1;
@@ -168,6 +183,7 @@ public:
         return is_highlighted_[x][y];
     }
 
+    // Откатить последний ход (для кнопки "назад")
     void rollback()
     {
         auto beat_series = max(1, *(history_beat_series.rbegin()));
@@ -181,6 +197,7 @@ public:
         clear_active();
     }
 
+    // Показать результат игры
     void show_final(const int res)
     {
         game_results = res;
@@ -194,6 +211,7 @@ public:
         rerender();
     }
 
+    // Освобождение ресурсов SDL при закрытии
     void quit()
     {
         SDL_DestroyTexture(board);
@@ -215,11 +233,13 @@ public:
     }
 
 private:
+    // Сохранить текущее состояние доски в историю
     void add_history(const int beat_series = 0)
     {
         history_mtx.push_back(mtx);
         history_beat_series.push_back(beat_series);
     }
+
     // function to make start matrix
     void make_start_mtx()
     {

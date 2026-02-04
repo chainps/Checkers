@@ -13,6 +13,7 @@ class Config
         reload();
     }
 
+    // Загружает настройки из файла settings.json в переменную config
     void reload()
     {
         std::ifstream fin(project_path + "settings.json");
@@ -20,6 +21,8 @@ class Config
         fin.close();
     }
 
+    // Оператор () позволяет обращаться к настройкам как config("раздел", "параметр")
+    // Это удобнее, чем писать config.get("раздел").get("параметр")
     auto operator()(const string &setting_dir, const string &setting_name) const
     {
         return config[setting_dir][setting_name];
